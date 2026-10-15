@@ -1,0 +1,145 @@
+{% from "partials/icons.html" import icon %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Cloud Notes Storage Dashboard{% endblock %}</title>
+
+  <!-- Self-Hosted Bootstrap 5 CSS (No CDNs) -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap.min.css') }}">
+
+  <!-- Custom Design Tokens, Layout, and Components -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+  <div class="app-shell">
+    <!-- Landmark: Left Navigation Sidebar (64-72px) -->
+    {% include "partials/sidebar.html" %}
+
+    <div class="app-main">
+      <!-- Landmark: Header / Top Bar (~56px) -->
+      {% include "partials/topbar.html" %}
+
+      <!-- Landmark: Scrollable Main Content Region -->
+      <main class="app-content" id="main-content">
+        <!-- JS-Disabled Fallback Alerts -->
+        <noscript>
+          {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+              {% for category, message in messages %}
+                <div class="alert-dark alert-{{ category }} mb-3" role="alert">
+                  <div class="d-flex align-items-center gap-8">
+                    {% if category == 'success' %}
+                      <span class="text-lime">●</span>
+                      <strong>[Success]</strong>
+                    {% else %}
+                      <span class="text-orange">●</span>
+                      <strong>[Error]</strong>
+                    {% endif %}
+                    <span>{{ message }}</span>
+                  </div>
+                </div>
+              {% endfor %}
+            {% endif %}
+          {% endwith %}
+        </noscript>
+
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+  </div>
+
+  <!-- Landmark: Modals rendered outside app-shell to prevent stacking context clipping -->
+  {% block modals %}{% endblock %}
+
+  <!-- Landmark: Accessible Toast Notification Container (aria-live, never color alone) -->
+  <div class="toast-container position-fixed bottom-0 end-0 p-3" id="globalToastContainer" style="z-index: 1200;" aria-live="polite" aria-atomic="false">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          {% set cat = category|lower %}
+          {% if cat == 'success' %}
+            <div class="toast dark-toast toast-success align-items-center show shadow-lg" role="status" aria-live="polite" aria-atomic="true" data-bs-autohide="true" data-bs-delay="4000">
+              <div class="toast-content d-flex align-items-start p-3 gap-12">
+                <span class="text-lime flex-shrink-0 mt-1">{{ icon('check-circle', size=18) }}</span>
+                <div class="flex-grow-1 min-w-0">
+                  <div class="d-flex align-items-center gap-8 mb-1">
+                    <span class="toast-badge badge-success-subtle text-uppercase fw-bold" style="font-size: 10px; letter-spacing: 0.5px;">Success</span>
+                    <span class="text-subtle-custom" style="font-size: 11px;">Completed</span>
+                  </div>
+                  <div class="toast-message text-white" style="font-size: 13px;">{{ message }}</div>
+                </div>
+                <button type="button" class="btn-close btn-close-white flex-shrink-0" data-bs-dismiss="toast" aria-label="Close"></button>
+              </div>
+            </div>
+          {% elif cat in ['danger', 'error'] %}
+            <div class="toast dark-toast toast-danger align-items-center show shadow-lg" role="alert" aria-live="assertive" aria-atomic="true" data-bs-autohide="false">
+              <div class="toast-content d-flex align-items-start p-3 gap-12">
+                <span class="text-orange flex-shrink-0 mt-1">{{ icon('alert-circle', size=18) }}</span>
+                <div class="flex-grow-1 min-w-0">
+                  <div class="d-flex align-items-center gap-8 mb-1">
+                    <span class="toast-badge badge-danger-subtle text-uppercase fw-bold" style="font-size: 10px; letter-spacing: 0.5px;">Error</span>
+                    <span class="text-subtle-custom" style="font-size: 11px;">Action required</span>
+                  </div>
+                  <div class="toast-message text-white mb-2" style="font-size: 13px;">{{ message }}</div>
+                  <div class="d-flex align-items-center gap-8">
+                    {% if 'size' in message|lower or 'upload' in message|lower or 'type' in message|lower or 'extension' in message|lower %}
+                      <button type="button" class="btn-dense btn-danger-soft btn-action-sm toast-retry-action" data-retry="upload">
+                        {{ icon('refresh-cw', size=12) }}
+                        <span>Retry Upload</span>
+                      </button>
+                    {% else %}
+                      <button type="button" class="btn-dense btn-danger-soft btn-action-sm toast-retry-action" data-retry="reload">
+                        {{ icon('refresh-cw', size=12) }}
+                        <span>Retry Connection</span>
+                      </button>
+                    {% endif %}
+                  </div>
+                </div>
+                <button type="button" class="btn-close btn-close-white flex-shrink-0" data-bs-dismiss="toast" aria-label="Close"></button>
+              </div>
+            </div>
+          {% elif cat == 'warning' %}
+            <div class="toast dark-toast toast-warning align-items-center show shadow-lg" role="alert" aria-live="assertive" aria-atomic="true" data-bs-autohide="false">
+              <div class="toast-content d-flex align-items-start p-3 gap-12">
+                <span class="text-yellow flex-shrink-0 mt-1">{{ icon('alert-triangle', size=18) }}</span>
+                <div class="flex-grow-1 min-w-0">
+                  <div class="d-flex align-items-center gap-8 mb-1">
+                    <span class="toast-badge badge-warning-subtle text-uppercase fw-bold" style="font-size: 10px; letter-spacing: 0.5px;">Warning</span>
+                    <span class="text-subtle-custom" style="font-size: 11px;">Notice</span>
+                  </div>
+                  <div class="toast-message text-white" style="font-size: 13px;">{{ message }}</div>
+                </div>
+                <button type="button" class="btn-close btn-close-white flex-shrink-0" data-bs-dismiss="toast" aria-label="Close"></button>
+              </div>
+            </div>
+          {% else %}
+            <div class="toast dark-toast toast-info align-items-center show shadow-lg" role="status" aria-live="polite" aria-atomic="true" data-bs-autohide="true" data-bs-delay="4000">
+              <div class="toast-content d-flex align-items-start p-3 gap-12">
+                <span class="text-blue flex-shrink-0 mt-1">{{ icon('info', size=18) }}</span>
+                <div class="flex-grow-1 min-w-0">
+                  <div class="d-flex align-items-center gap-8 mb-1">
+                    <span class="toast-badge badge-info-subtle text-uppercase fw-bold" style="font-size: 10px; letter-spacing: 0.5px;">Notice</span>
+                    <span class="text-subtle-custom" style="font-size: 11px;">Information</span>
+                  </div>
+                  <div class="toast-message text-white" style="font-size: 13px;">{{ message }}</div>
+                </div>
+                <button type="button" class="btn-close btn-close-white flex-shrink-0" data-bs-dismiss="toast" aria-label="Close"></button>
+              </div>
+            </div>
+          {% endif %}
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+  </div>
+
+  <!-- Self-Hosted Bootstrap 5 Bundle JS (No CDNs) -->
+  <script src="{{ url_for('static', filename='vendor/bootstrap.bundle.min.js') }}"></script>
+
+  <!-- Dashboard Shell Script -->
+  <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+  {% block extra_scripts %}{% endblock %}
+</body>
+</html>

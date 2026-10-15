@@ -1,0 +1,53 @@
+{% from "partials/icons.html" import icon %}
+<header class="app-topbar">
+  <!-- Left: Global Search -->
+  <div class="topbar-left">
+    <form action="{{ url_for('index') }}" method="GET" class="w-100">
+      <div class="search-box">
+        <span class="search-icon">{{ icon('search', size=15) }}</span>
+        <input 
+          type="text" 
+          id="global-search-input" 
+          name="search" 
+          class="search-input" 
+          placeholder="Search files by name..." 
+          value="{{ query or '' }}"
+          autocomplete="off"
+          aria-label="Search files by name"
+        >
+        <span class="search-shortcut-hint" title="Press / to search">/</span>
+      </div>
+    </form>
+  </div>
+
+  <!-- Right: Actions and Controls -->
+  <div class="topbar-right">
+    <!-- Sort Select Control -->
+    <div class="d-none d-sm-block">
+      <select id="global-sort-select" class="select-dense" aria-label="Sort files">
+        <option value="name-asc">Name (A-Z)</option>
+        <option value="name-desc">Name (Z-A)</option>
+        <option value="date-desc" selected>Newest First</option>
+        <option value="date-asc">Oldest First</option>
+        <option value="size-desc">Largest First</option>
+        <option value="size-asc">Smallest First</option>
+      </select>
+    </div>
+
+    <!-- View Switcher (List vs Grid) -->
+    <div class="view-toggle-group" role="group" aria-label="View toggle">
+      <button type="button" class="view-toggle-btn active" data-view-toggle="list" title="List View" aria-label="List View" data-bs-toggle="tooltip">
+        {{ icon('list', size=15) }}
+      </button>
+      <button type="button" class="view-toggle-btn" data-view-toggle="grid" title="Grid View" aria-label="Grid View" data-bs-toggle="tooltip">
+        {{ icon('grid', size=15) }}
+      </button>
+    </div>
+
+    <!-- Upload Button Trigger (Opens modal) -->
+    <button type="button" id="topbarUploadBtn" class="btn-dense btn-lime" data-bs-toggle="modal" data-bs-target="#uploadModal">
+      {{ icon('upload', size=15) }}
+      <span>Upload</span>
+    </button>
+  </div>
+</header>

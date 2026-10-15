@@ -103,65 +103,91 @@ Keeping these operations in a separate class makes the Flask routes easier to fo
 
 ## Configuration
 
-Create a `.env` file locally:
+Copy the example environment file and set your configuration:
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` with your actual settings:
 
 ```env
 FLASK_SECRET_KEY=your_secret_key
 AWS_ACCESS_KEY_ID=your_access_key
 AWS_SECRET_ACCESS_KEY=your_secret_key
-AWS_REGION=your_region
+AWS_REGION=us-east-1
 AWS_BUCKET_NAME=your_bucket_name
 ```
 
-Do not commit the `.env` file to GitHub.
-
-A `.env.example` file can be used to document the required variables without exposing credentials.
+> **Security Note:** Never commit `.env` or AWS credentials to version control. The repository ignores `.env` via `.gitignore`. Refer to `.env.example` for all required variables.
 
 ## Installation
 
 Clone the repository and enter the project directory:
 
 ```bash
-git clone <your-repository-url>
-cd ai-note-storage
+git clone https://github.com/mallidimohan41297/cloud-storage-notes-awscloud.git
+cd cloud-storage-notes-awscloud-main
 ```
 
-Create a virtual environment:
+Create and activate a virtual environment:
 
 ```bash
-python -m venv .venv
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 ```
 
-Activate it on Windows:
-
-```bash
-.venv\Scripts\activate
-```
-
-On Linux/macOS:
-
-```bash
-source .venv/bin/activate
-```
-
-Install dependencies:
+Install application dependencies:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-## Run
+## Running the Application
 
-Start the Flask application:
+Start the Flask application server:
 
 ```bash
 python -m src.app
 ```
 
-Then open:
+Or using Flask CLI:
 
-```text
-http://127.0.0.1:5000
+```bash
+flask --app src.app run --port 5000
+```
+
+Then open your browser at: `http://127.0.0.1:5000`
+
+## Running Tests
+
+Run the full regression and S3 stub test suite:
+
+```bash
+python -m unittest discover tests
+```
+
+To run individual test modules:
+
+```bash
+python -m unittest tests/test_baseline.py
+python -m unittest tests/test_s3_manager.py
+```
+
+## Running Verification & Screenshots
+
+To capture Playwright verification screenshots across all viewports (`1920x1080`, `1366x768`, `390x844`) and assert zero horizontal overflow:
+
+```bash
+python scripts/capture_proof.py
+```
+
+Screenshots are saved to `docs/screenshots/`.
+
+To run Lighthouse accessibility checks:
+
+```bash
+python scripts/run_lighthouse.py
 ```
 
 ## S3 Download Flow

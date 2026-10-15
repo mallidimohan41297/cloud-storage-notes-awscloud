@@ -1,88 +1,433 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI-Powered Student Notes Storage</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body class="bg-light">
-    <div class="container py-5">
-        <h1 class="mb-4 text-center text-primary fw-bold">Cloud Notes Storage Dashboard</h1>
-        
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                        {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
+{% extends "base.html" %}
+{% from "partials/icons.html" import icon %}
+{% from "partials/file_macros.html" import file_row, file_card %}
 
-        <div class="row g-4 mb-5">
-            <div class="col-md-6">
-                <div class="card p-4 shadow-sm">
-                    <h4 class="card-title mb-3">Upload Academic Resources</h4>
-                    <form action="/upload" method="POST" enctype="multipart/form-data">
-                        <div class="input-group">
-                            <input type="file" name="file" class="form-control" required>
-                            <button class="btn btn-primary" type="submit">Upload File</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-            <div class="col-md-6">
-                <div class="card p-4 shadow-sm">
-                    <h4 class="card-title mb-3">Search Library</h4>
-                    <form action="/" method="GET">
-                        <div class="input-group">
-                            <input type="text" name="search" class="form-control" placeholder="Search notes by name..." value="{{ query }}">
-                            <button class="btn btn-secondary" type="submit">Search</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
+{% block title %}Cloud Notes Storage Dashboard{% endblock %}
 
-        <div class="card shadow-sm">
-            <div class="card-body">
-                <h3 class="card-title mb-4 text-secondary">Stored Academic Notes</h3>
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle">
-                        <thead class="table-dark">
-                            <tr>
-                                <th>Document Name</th>
-                                <th>File Size (KB)</th>
-                                <th>Upload Timestamp</th>
-                                <th class="text-end">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for file in files %}
-                            <tr>
-                                <td class="fw-semibold text-dark">{{ file.key }}</td>
-                                <td>{{ file.size }} KB</td>
-                                <td>{{ file.last_modified }}</td>
-                                <td class="text-end">
-                                    <a href="/download/{{ file.key }}" class="btn btn-success btn-sm me-2" target="_blank">Download</a>
-                                    <form action="/delete/{{ file.key }}" method="POST" class="d-inline">
-                                        <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Confirm deletion?')">Delete</button>
-                                    </form>
-                                </td>
-                            </tr>
-                            {% else %}
-                            <tr>
-                                <td colspan="4" class="text-center py-4 text-muted">No academic resources found. Try uploading one!</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+{% block content %}
+{# Compute derived real data stats and categories #}
+{% set total_files = files|length %}
+{% set total_size_val = namespace(size=0.0) %}
+{% set doc_count = namespace(count=0) %}
+{% set img_count = namespace(count=0) %}
+{% set other_count = namespace(count=0) %}
+{% set largest_file = namespace(name='', size=0.0) %}
+{% set newest_file = namespace(name='', date='') %}
+
+{% for f in files %}
+  {% set total_size_val.size = total_size_val.size + f.size %}
+  {% set ext = f.key.split('.')[-1].lower() if '.' in f.key else '' %}
+  {% if ext in ['pdf', 'doc', 'docx', 'txt', 'rtf', 'odt', 'md', 'csv', 'xlsx', 'xls', 'pptx', 'ppt'] %}
+    {% set doc_count.count = doc_count.count + 1 %}
+  {% elif ext in ['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp', 'bmp', 'ico'] %}
+    {% set img_count.count = img_count.count + 1 %}
+  {% else %}
+    {% set other_count.count = other_count.count + 1 %}
+  {% endif %}
+
+  {% if f.size > largest_file.size %}
+    {% set largest_file.size = f.size %}
+    {% set largest_file.name = f.key %}
+  {% endif %}
+
+  {% if not newest_file.date or f.last_modified > newest_file.date %}
+    {% set newest_file.date = f.last_modified %}
+    {% set newest_file.name = f.key %}
+  {% endif %}
+{% endfor %}
+
+<h1 class="visually-hidden">AWS Cloud Notes Storage Dashboard</h1>
+
+<div class="d-flex flex-column gap-16">
+  <!-- 0. INLINE ERROR ALERT (Clear message + Retry action, stays until dismissed) -->
+  <div id="inline-error-alert" class="alert-dark alert-danger d-none p-3 rounded" role="alert">
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-12 w-100">
+      <div class="d-flex align-items-center gap-12">
+        <span class="text-orange flex-shrink-0">{{ icon('alert-circle', size=22) }}</span>
+        <div>
+          <div class="fw-bold text-white d-flex align-items-center gap-8" style="font-size: 13px;">
+            <span class="toast-badge badge-danger-subtle text-uppercase fw-bold" style="font-size: 10px;">Error</span>
+            <span id="inline-error-title">Cloud Storage Connection Failed</span>
+          </div>
+          <div class="text-muted-custom mt-1" id="inline-error-msg" style="font-size: 12px;">
+            Unable to establish connection with AWS S3 bucket. Verify cloud credentials or network connectivity.
+          </div>
         </div>
+      </div>
+      <div class="d-flex align-items-center gap-8">
+        <button type="button" class="btn-dense btn-outline-orange btn-action-sm" id="inline-error-retry-btn">
+          {{ icon('refresh-cw', size=13) }}
+          <span>Retry Connection</span>
+        </button>
+        <button type="button" class="btn-close btn-close-white" id="inline-error-dismiss-btn" aria-label="Dismiss error"></button>
+      </div>
     </div>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>
+  </div>
+
+  <!-- 1. STAT TILES (Derived strictly from real data) -->
+  <div class="row g-3" id="stat-tiles-row">
+    <!-- Total Files -->
+    <div class="col-6 col-md-3">
+      <div class="stat-tile">
+        <div class="stat-icon-wrapper" style="background-color: rgba(199, 243, 107, 0.12); color: var(--lime);">
+          {{ icon('folder', size=20) }}
+        </div>
+        <div class="min-w-0">
+          <div class="stat-val" id="stat-total-files">{{ total_files }}</div>
+          <div class="stat-label">Total Files</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Total Storage Consumed -->
+    <div class="col-6 col-md-3">
+      <div class="stat-tile">
+        <div class="stat-icon-wrapper" style="background-color: rgba(23, 101, 209, 0.12); color: #6ba6f7;">
+          {{ icon('hard-drive', size=20) }}
+        </div>
+        <div class="min-w-0">
+          <div class="stat-val font-monospace" id="stat-total-storage">
+            {% if total_size_val.size >= 1024 %}
+              {{ (total_size_val.size / 1024)|round(2) }} MB
+            {% else %}
+              {{ total_size_val.size|round(2) }} KB
+            {% endif %}
+          </div>
+          <div class="stat-label">Total Storage</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Largest Object -->
+    <div class="col-6 col-md-3">
+      <div class="stat-tile">
+        <div class="stat-icon-wrapper" style="background-color: rgba(255, 197, 46, 0.12); color: var(--yellow);">
+          {{ icon('file', size=20) }}
+        </div>
+        <div class="min-w-0">
+          <div class="stat-val font-monospace" id="stat-largest-size">{{ largest_file.size|round(1) }} KB</div>
+          <div class="stat-label">Largest File</div>
+          <div class="stat-sub" id="stat-largest-name" title="{{ largest_file.name }}">{{ largest_file.name or 'None' }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Most Recent Upload -->
+    <div class="col-6 col-md-3">
+      <div class="stat-tile">
+        <div class="stat-icon-wrapper" style="background-color: rgba(244, 154, 194, 0.12); color: var(--pink);">
+          {{ icon('clock', size=20) }}
+        </div>
+        <div class="min-w-0">
+          <div class="stat-val font-monospace" id="stat-newest-date" style="font-size: 13px;">{{ newest_file.date.split(' ')[0] if newest_file.date else 'None' }}</div>
+          <div class="stat-label">Latest Upload</div>
+          <div class="stat-sub" id="stat-newest-name" title="{{ newest_file.name }}">{{ newest_file.name or 'None' }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. FILTER BAR & VIEW HEADER -->
+  <div class="dark-card p-3 d-flex flex-wrap align-items-center justify-content-between gap-12" id="filter-bar-card">
+    <!-- Filter Chips -->
+    <div class="filter-chips-container" role="group" aria-label="Filter file types">
+      <button type="button" class="filter-chip active" data-filter-category="all">
+        <span>All</span>
+        <span class="chip-count">{{ total_files }}</span>
+      </button>
+
+      {% if doc_count.count > 0 %}
+      <button type="button" class="filter-chip" data-filter-category="documents">
+        <span class="text-blue">{{ icon('file-text', size=13) }}</span>
+        <span>Documents</span>
+        <span class="chip-count">{{ doc_count.count }}</span>
+      </button>
+      {% endif %}
+
+      {% if img_count.count > 0 %}
+      <button type="button" class="filter-chip" data-filter-category="images">
+        <span class="text-pink">{{ icon('image', size=13) }}</span>
+        <span>Images</span>
+        <span class="chip-count">{{ img_count.count }}</span>
+      </button>
+      {% endif %}
+
+      {% if other_count.count > 0 %}
+      <button type="button" class="filter-chip" data-filter-category="other">
+        <span class="text-muted-custom">{{ icon('file', size=13) }}</span>
+        <span>Other</span>
+        <span class="chip-count">{{ other_count.count }}</span>
+      </button>
+      {% endif %}
+    </div>
+
+    <!-- Active Count Badge -->
+    <div class="d-flex align-items-center gap-8">
+      <span class="text-muted-custom" style="font-size: 13px;">Showing:</span>
+      <span class="badge-custom badge-default" id="visible-count-badge">{{ total_files }} file{% if total_files != 1 %}s{% endif %}</span>
+    </div>
+  </div>
+
+  <!-- 3. SKELETON LOADING STATE (Pulse/shimmer animation during load) -->
+  <div id="skeleton-loading-container" class="d-none">
+    <!-- Skeleton Table for List View -->
+    <div id="skeleton-table-card" class="dark-card p-0 overflow-hidden mb-3">
+      <div class="table-responsive">
+        <table class="dark-table align-middle">
+          <thead>
+            <tr>
+              <th><span>Document Name</span></th>
+              <th style="width: 110px;"><span>Type</span></th>
+              <th style="width: 140px;"><span>Size</span></th>
+              <th style="width: 200px;"><span>Upload Timestamp</span></th>
+              <th class="text-end" style="width: 190px;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for i in range(4) %}
+            <tr>
+              <td>
+                <div class="d-flex align-items-center gap-12">
+                  <div class="skeleton-shimmer skeleton-circle"></div>
+                  <div class="skeleton-shimmer skeleton-line" style="width: {{ [200, 260, 170, 230][i] }}px;"></div>
+                </div>
+              </td>
+              <td><div class="skeleton-shimmer skeleton-badge"></div></td>
+              <td><div class="skeleton-shimmer skeleton-line" style="width: 65px;"></div></td>
+              <td><div class="skeleton-shimmer skeleton-line" style="width: 130px;"></div></td>
+              <td class="text-end">
+                <div class="d-inline-flex gap-8">
+                  <div class="skeleton-shimmer skeleton-line" style="width: 76px; height: 26px;"></div>
+                  <div class="skeleton-shimmer skeleton-line" style="width: 64px; height: 26px;"></div>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Skeleton Grid for Grid View -->
+    <div id="skeleton-grid-cards" class="row g-3 d-none">
+      {% for i in range(3) %}
+      <div class="col-md-6 col-xl-4">
+        <div class="skeleton-card">
+          <div class="d-flex align-items-start justify-content-between mb-3">
+            <div class="skeleton-shimmer skeleton-circle"></div>
+            <div class="skeleton-shimmer skeleton-badge"></div>
+          </div>
+          <div class="skeleton-shimmer skeleton-line mb-2" style="width: 75%; height: 16px;"></div>
+          <div class="skeleton-shimmer skeleton-line mb-4" style="width: 45%; height: 11px;"></div>
+          <div class="d-flex gap-8 pt-2">
+            <div class="skeleton-shimmer skeleton-line flex-grow-1" style="height: 28px;"></div>
+            <div class="skeleton-shimmer skeleton-line" style="width: 32px; height: 28px;"></div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- 4. EMPTY STATE (Icon + One sentence + Upload CTA, No illustrations) -->
+  <div id="empty-state-card" class="dark-card text-center py-5 {% if total_files > 0 %}d-none{% endif %}">
+    <div class="d-flex flex-column align-items-center justify-content-center gap-12 py-4">
+      <div class="text-subtle-custom mb-1">
+        {{ icon('folder', size=42) }}
+      </div>
+      <p class="text-white fw-medium mb-3" style="font-size: 14px;">
+        No academic files stored in your cloud storage yet.
+      </p>
+      <button type="button" class="btn-dense btn-lime" data-bs-toggle="modal" data-bs-target="#uploadModal">
+        {{ icon('upload', size=15) }}
+        <span>Upload Note</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- 5. FILE EXPLORER: LIST VIEW -->
+  <div id="list-view-container" class="dark-card p-0 overflow-hidden {% if total_files == 0 %}d-none{% endif %}">
+    <div class="table-responsive">
+      <table class="dark-table align-middle">
+        <thead>
+          <tr>
+            <th class="sortable" data-sort-field="name" title="Sort by Document Name">
+              <span>Document Name</span>
+              <span class="sort-indicator"></span>
+            </th>
+            <th class="sortable d-none d-md-table-cell" data-sort-field="type" title="Sort by File Type" style="width: 110px;">
+              <span>Type</span>
+              <span class="sort-indicator"></span>
+            </th>
+            <th class="sortable d-none d-md-table-cell" data-sort-field="size" title="Sort by File Size" style="width: 140px;">
+              <span>Size</span>
+              <span class="sort-indicator"></span>
+            </th>
+            <th class="sortable d-none d-md-table-cell" data-sort-field="date" title="Sort by Upload Timestamp" style="width: 200px;">
+              <span>Upload Timestamp</span>
+              <span class="sort-indicator"></span>
+            </th>
+            <th class="text-end" style="width: 190px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="file-table-body">
+          {% for file in files %}
+            {{ file_row(file) }}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 6. FILE EXPLORER: GRID VIEW -->
+  <div id="grid-view-container" class="d-none">
+    <div class="row g-3" id="file-grid-row">
+      {% for file in files %}
+        {{ file_card(file) }}
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- 7. NO SEARCH RESULTS STATE -->
+  <div id="no-search-results" class="dark-card text-center py-5 d-none">
+    <div class="d-flex flex-column align-items-center gap-12">
+      <span class="text-orange">{{ icon('alert-circle', size=38) }}</span>
+      <div>
+        <h4 class="h6 text-white fw-bold mb-1">No matching files found</h4>
+        <p class="text-muted-custom mb-0" style="font-size: 13px;">Try adjusting your search query or clear the active category filters.</p>
+      </div>
+      <button type="button" class="btn-dense btn-surface mt-2" id="clear-filters-btn">
+        {{ icon('x', size=14) }}
+        <span>Clear Filters</span>
+      </button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block modals %}
+<!-- 6. PREPARING DOWNLOAD TOAST / BANNER -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 1100;">
+  <div id="downloadToast" class="toast align-items-center text-white bg-surface border-subtle shadow-lg" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="d-flex">
+      <div class="toast-body d-flex align-items-center gap-12">
+        <div class="spinner-border spinner-border-sm text-lime" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+        <div>
+          <div class="fw-semibold" style="font-size: 13px;">Preparing download...</div>
+          <div class="text-subtle-custom" style="font-size: 11px;">Generating secure one-time presigned link</div>
+        </div>
+      </div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+  </div>
+</div>
+
+<!-- 7. UPLOAD MODAL WITH COMPACT DROPZONE (Form field contract: name="file", POST to /upload) -->
+<div class="modal fade" id="uploadModal" tabindex="-1" aria-labelledby="uploadModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content dark-modal">
+      <div class="modal-header">
+        <h5 class="modal-title h6 fw-bold text-white d-flex align-items-center gap-8" id="uploadModalLabel">
+          <span class="text-lime">{{ icon('upload', size=18) }}</span>
+          <span>Upload Academic Resource</span>
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form id="uploadForm" action="{{ url_for('upload') }}" method="POST" enctype="multipart/form-data">
+        <div class="modal-body">
+          <!-- Dropzone Container (~96-120px tall) -->
+          <div id="dropzone" class="upload-dropzone text-center p-3">
+            <!-- Hidden native file input (works with JS disabled) -->
+            <input type="file" name="file" id="modalFileInput" class="dropzone-input" required aria-label="Choose file to upload">
+            
+            <div class="dropzone-prompt d-flex flex-column align-items-center justify-content-center h-100">
+              <span class="text-lime mb-2">{{ icon('upload', size=26) }}</span>
+              <div class="dropzone-text fw-medium" style="font-size: 13px;">
+                Drag &amp; drop file here, or <span class="text-lime text-decoration-underline" style="cursor: pointer;">browse</span>
+              </div>
+              <div class="text-subtle-custom mt-1" style="font-size: 11px;">
+                Max file size: 16 MB. Supports PDF, Docs, Code, Archives, Images.
+              </div>
+            </div>
+
+            <div id="dropzoneFilePreview" class="dropzone-preview d-none align-items-center justify-content-between p-2 mt-2">
+              <div class="d-flex align-items-center gap-8 min-w-0">
+                <span class="text-blue">{{ icon('file', size=18) }}</span>
+                <span id="dropzoneFileName" class="text-white fw-semibold file-name-truncate" style="max-width: 220px;"></span>
+                <span id="dropzoneFileSize" class="text-muted-custom font-monospace" style="font-size: 11px;"></span>
+              </div>
+              <button type="button" id="dropzoneRemoveFile" class="btn-dense btn-surface btn-action-sm" title="Remove selected file" aria-label="Remove selected file">
+                {{ icon('x', size=13) }}
+              </button>
+            </div>
+          </div>
+
+          <!-- Client-side Validation Error Notice -->
+          <div id="uploadErrorNotice" class="alert-dark alert-danger d-none mt-3 p-2" style="font-size: 12px;" role="alert">
+            <span class="text-orange">●</span>
+            <span id="uploadErrorText" class="ms-2"></span>
+          </div>
+
+          <!-- Upload Progress Bar -->
+          <div id="uploadProgressWrapper" class="d-none mt-3">
+            <div class="d-flex justify-content-between text-muted-custom mb-1" style="font-size: 12px;">
+              <span id="uploadProgressStatus">Uploading to S3...</span>
+              <span id="uploadProgressPercent" class="font-monospace">0%</span>
+            </div>
+            <div class="progress" style="height: 6px; background-color: var(--surface-2);">
+              <div id="uploadProgressBar" class="progress-bar" role="progressbar" style="width: 0%; background-color: var(--lime); transition: width 0.15s ease;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-dense btn-surface" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" id="uploadSubmitBtn" class="btn-dense btn-lime">
+            {{ icon('upload', size=15) }}
+            <span>Upload File</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- 8. DELETE CONFIRMATION MODAL (Destructive Orange Button, Cancel Focused by Default, Trap Focus) -->
+<div class="modal fade" id="deleteConfirmModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true" data-bs-backdrop="static">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content dark-modal border-orange-soft">
+      <div class="modal-header">
+        <h5 class="modal-title h6 fw-bold text-white d-flex align-items-center gap-8" id="deleteModalLabel">
+          <span class="text-orange">{{ icon('trash', size=18) }}</span>
+          <span>Confirm File Deletion</span>
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form id="deleteForm" method="POST" action="">
+        <div class="modal-body">
+          <p class="text-white mb-2" style="font-size: 13px;">
+            Are you sure you want to permanently delete this object from your AWS S3 bucket?
+          </p>
+          <div class="p-2 bg-surface-2 border-subtle rounded d-flex align-items-center gap-8 my-2">
+            <span class="text-orange">{{ icon('file', size=16) }}</span>
+            <span id="deleteModalFileName" class="text-white fw-bold file-name-truncate font-monospace" style="max-width: 380px;"></span>
+          </div>
+          <p class="text-subtle-custom mb-0" style="font-size: 11px;">
+            This action cannot be undone. The object will be immediately removed from cloud storage.
+          </p>
+        </div>
+        <div class="modal-footer">
+          <!-- Cancel button focused by default -->
+          <button type="button" id="deleteModalCancelBtn" class="btn-dense btn-surface" data-bs-dismiss="modal">Cancel</button>
+          <!-- Destructive Orange Submit Button -->
+          <button type="submit" id="deleteModalConfirmBtn" class="btn-dense btn-danger-destructive">
+            {{ icon('trash', size=15) }}
+            <span>Delete File</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

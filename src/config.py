@@ -10,6 +10,15 @@ class Config:
     AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
     AWS_BUCKET_NAME = os.getenv("AWS_BUCKET_NAME")
 
+    # File Upload Limits & Validation Rules
+    MAX_CONTENT_LENGTH = int(os.getenv("MAX_UPLOAD_SIZE_BYTES", 16 * 1024 * 1024))  # 16 MB default
+    ALLOWED_EXTENSIONS = {
+        'pdf', 'doc', 'docx', 'txt', 'rtf', 'odt', 'md', 'csv', 'xlsx', 'xls', 'pptx', 'ppt',
+        'jpg', 'jpeg', 'png', 'gif', 'svg', 'webp', 'bmp', 'ico',
+        'zip', 'tar', 'gz', 'rar', '7z',
+        'py', 'js', 'html', 'css', 'json', 'ts', 'java', 'cpp', 'c', 'sql', 'sh'
+    }
+
     @classmethod
     def validate(cls):
         missing = [k for k in ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_BUCKET_NAME"] if not getattr(cls, k)]

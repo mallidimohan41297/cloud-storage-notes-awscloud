@@ -10,8 +10,20 @@ s3 = S3Manager()
 @app.route('/', methods=['GET'])
 def index():
     query = request.args.get('search', '')
-    files = s3.list_files(query)
+    try:
+        files = s3.list_files(query)
+    except Exception as e:
+        flash(f"AWS S3 connection failed: Unable to retrieve files. {str(e)}", "danger")
+        files = []
     return render_template('index.html', files=files, query=query)
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in Config.ALLOWED_EXTENSIONS
+
+@app.errorhandler(413)
+def request_entity_too_large(error):
+    flash(f"File exceeds maximum allowed size ({Config.MAX_CONTENT_LENGTH // (1024 * 1024)} MB).", "danger")
+    return redirect(url_for('index'))
 
 @app.route('/upload', methods=['POST'])
 def upload():
@@ -23,8 +35,16 @@ def upload():
     if file.filename == '':
         flash("No selected file", "danger")
         return redirect(url_for('index'))
+
+    if not allowed_file(file.filename):
+        flash(f"Unsupported file type. Please upload academic notes, documents, code, or images.", "danger")
+        return redirect(url_for('index'))
         
     filename = secure_filename(file.filename)
+    if not filename:
+        flash("Invalid filename provided.", "danger")
+        return redirect(url_for('index'))
+
     if s3.upload_file(file, filename):
         flash(f"Successfully uploaded {filename} to AWS S3!", "success")
     else:

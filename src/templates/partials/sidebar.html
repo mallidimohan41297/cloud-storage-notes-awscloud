@@ -1,0 +1,14 @@
+{% from "partials/icons.html" import icon %}
+<nav class="app-sidebar" aria-label="Main Navigation">
+  <!-- Brand / Logo -->
+  <a href="{{ url_for('index') }}" class="sidebar-brand" title="AWS Cloud Notes Storage" data-bs-toggle="tooltip" data-bs-placement="right" aria-label="AWS Cloud Notes Storage">
+    {{ icon('cloud', size=22) }}
+  </a>
+
+  <!-- Navigation items (Only links that map to real routes) -->
+  <div class="sidebar-nav">
+    <a href="{{ url_for('index') }}" class="sidebar-link active" title="Files Dashboard" data-bs-toggle="tooltip" data-bs-placement="right" aria-label="Files Dashboard">
+      {{ icon('folder', size=20) }}
+    </a>
+  </div>
+</nav>

@@ -1,0 +1,151 @@
+{% from "partials/icons.html" import icon %}
+
+{# Helper macro to determine type group and icon #}
+{% macro file_icon(ext, size=18) %}
+  {% if ext in ['pdf'] %}
+    <span class="file-icon-badge file-icon-pdf" title="PDF Document">{{ icon('file', size=size) }}</span>
+  {% elif ext in ['doc', 'docx', 'txt', 'rtf', 'odt', 'md', 'csv', 'xlsx', 'xls', 'pptx', 'ppt'] %}
+    <span class="file-icon-badge file-icon-doc" title="Document">{{ icon('file-text', size=size) }}</span>
+  {% elif ext in ['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp', 'bmp', 'ico'] %}
+    <span class="file-icon-badge file-icon-img" title="Image">{{ icon('image', size=size) }}</span>
+  {% elif ext in ['zip', 'tar', 'gz', 'rar', '7z'] %}
+    <span class="file-icon-badge file-icon-archive" title="Archive">{{ icon('archive', size=size) }}</span>
+  {% elif ext in ['mp4', 'mkv', 'avi', 'mov'] %}
+    <span class="file-icon-badge file-icon-media" title="Video">{{ icon('video', size=size) }}</span>
+  {% elif ext in ['mp3', 'wav', 'ogg', 'm4a'] %}
+    <span class="file-icon-badge file-icon-media" title="Audio">{{ icon('music', size=size) }}</span>
+  {% elif ext in ['py', 'js', 'html', 'css', 'json', 'ts', 'java', 'cpp', 'c', 'sh'] %}
+    <span class="file-icon-badge file-icon-code" title="Code">{{ icon('code', size=size) }}</span>
+  {% else %}
+    <span class="file-icon-badge file-icon-other" title="File">{{ icon('file', size=size) }}</span>
+  {% endif %}
+{% endmacro %}
+
+{# MACRO: Table Row (Dense List View) #}
+{% macro file_row(file) %}
+  {% set ext = file.key.split('.')[-1].lower() if '.' in file.key else '' %}
+  {% if ext in ['pdf', 'doc', 'docx', 'txt', 'rtf', 'odt', 'md', 'csv', 'xlsx', 'xls', 'pptx', 'ppt'] %}
+    {% set category = 'documents' %}
+  {% elif ext in ['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp', 'bmp', 'ico'] %}
+    {% set category = 'images' %}
+  {% else %}
+    {% set category = 'other' %}
+  {% endif %}
+
+  <tr class="file-item-row"
+      data-key="{{ file.key|lower }}"
+      data-raw-key="{{ file.key }}"
+      data-type="{{ ext }}"
+      data-category="{{ category }}"
+      data-size="{{ file.size }}"
+      data-modified="{{ file.last_modified }}">
+    <td class="name-cell">
+      <div class="d-flex align-items-center gap-8 min-w-0">
+        {{ file_icon(ext, size=16) }}
+        <div class="min-w-0 flex-grow-1">
+          <span class="file-name-truncate" data-bs-toggle="tooltip" data-bs-placement="top" title="{{ file.key }}">
+            {{ file.key }}
+          </span>
+          {# Mobile meta line: name + one meta line #}
+          <div class="file-mobile-meta text-subtle-custom font-monospace d-md-none mt-1">
+            <span>{{ ext|upper if ext else 'FILE' }}</span>
+            <span class="mx-1">•</span>
+            <span>{{ file.size }} KB</span>
+            <span class="mx-1">•</span>
+            <span>{{ file.last_modified.split(' ')[0] }}</span>
+          </div>
+        </div>
+      </div>
+    </td>
+    <td class="type-cell">
+      <span class="badge-custom badge-type-{{ category }}">{{ ext|upper if ext else 'FILE' }}</span>
+    </td>
+    <td class="size-cell">
+      <span class="text-muted-custom font-monospace">{{ file.size }} KB</span>
+    </td>
+    <td class="date-cell">
+      <span class="text-subtle-custom font-monospace">{{ file.last_modified }}</span>
+    </td>
+    <td class="actions-cell text-end">
+      <!-- Desktop Actions -->
+      <div class="d-none d-md-inline-flex align-items-center gap-8">
+        <a href="{{ url_for('download', filename=file.key) }}" class="btn-dense btn-surface btn-action-sm btn-download-action" target="_blank" title="Download securely" aria-label="Download {{ file.key }}" data-bs-toggle="tooltip">
+          {{ icon('download', size=14) }}
+          <span>Download</span>
+        </a>
+        <button type="button" class="btn-dense btn-danger-soft btn-action-sm btn-delete-trigger" data-filename="{{ file.key }}" title="Delete file" aria-label="Delete {{ file.key }}" data-bs-toggle="tooltip">
+          {{ icon('trash', size=14) }}
+          <span>Delete</span>
+        </button>
+      </div>
+
+      <!-- Mobile Overflow Menu (Tap target >= 44px) -->
+      <div class="dropdown d-inline-flex d-md-none">
+        <button class="btn-dense btn-surface btn-overflow-menu" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="More actions for {{ file.key }}">
+          {{ icon('more-vertical', size=18) }}
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end dark-dropdown shadow">
+          <li>
+            <a class="dropdown-item d-flex align-items-center gap-8 py-2 btn-download-action" href="{{ url_for('download', filename=file.key) }}" target="_blank" aria-label="Download {{ file.key }}">
+              {{ icon('download', size=15) }}
+              <span>Download</span>
+            </a>
+          </li>
+          <li>
+            <button class="dropdown-item d-flex align-items-center gap-8 py-2 text-orange btn-delete-trigger" type="button" data-filename="{{ file.key }}" aria-label="Delete {{ file.key }}">
+              {{ icon('trash', size=15) }}
+              <span>Delete</span>
+            </button>
+          </li>
+        </ul>
+      </div>
+    </td>
+  </tr>
+{% endmacro %}
+
+{# MACRO: Grid Card #}
+{% macro file_card(file) %}
+  {% set ext = file.key.split('.')[-1].lower() if '.' in file.key else '' %}
+  {% if ext in ['pdf', 'doc', 'docx', 'txt', 'rtf', 'odt', 'md', 'csv', 'xlsx', 'xls', 'pptx', 'ppt'] %}
+    {% set category = 'documents' %}
+  {% elif ext in ['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp', 'bmp', 'ico'] %}
+    {% set category = 'images' %}
+  {% else %}
+    {% set category = 'other' %}
+  {% endif %}
+
+  <div class="col-12 col-sm-6 col-md-4 col-xl-3 col-xxl-2 file-item-card"
+       data-key="{{ file.key|lower }}"
+       data-raw-key="{{ file.key }}"
+       data-type="{{ ext }}"
+       data-category="{{ category }}"
+       data-size="{{ file.size }}"
+       data-modified="{{ file.last_modified }}">
+    <div class="dark-card h-100 d-flex flex-column justify-content-between p-3 file-card-hover">
+      <div>
+        <div class="d-flex align-items-center justify-content-between mb-2">
+          {{ file_icon(ext, size=24) }}
+          <span class="badge-custom badge-type-{{ category }}">{{ ext|upper if ext else 'FILE' }}</span>
+        </div>
+        <h4 class="h6 text-white mb-2 file-name-truncate-card" data-bs-toggle="tooltip" data-bs-placement="top" title="{{ file.key }}">
+          {{ file.key }}
+        </h4>
+      </div>
+      <div class="pt-2 border-top border-subtle mt-2">
+        <div class="d-flex align-items-center justify-content-between text-muted-custom font-monospace mb-3" style="font-size: 13px;">
+          <span>{{ file.size }} KB</span>
+          <span class="text-subtle-custom">{{ file.last_modified.split(' ')[0] }}</span>
+        </div>
+        <div class="d-flex align-items-center gap-8">
+          <a href="{{ url_for('download', filename=file.key) }}" class="btn-dense btn-surface flex-grow-1 btn-download-action" target="_blank" title="Download" aria-label="Download {{ file.key }}">
+            {{ icon('download', size=14) }}
+            <span>Download</span>
+          </a>
+          <button type="button" class="btn-dense btn-danger-soft btn-delete-trigger" data-filename="{{ file.key }}" title="Delete file" aria-label="Delete {{ file.key }}" data-bs-toggle="tooltip">
+            {{ icon('trash', size=14) }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endmacro %}
